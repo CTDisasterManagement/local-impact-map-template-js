@@ -46,6 +46,8 @@ define([
                     rendererContainer: 'item-container',
                     rendererSummarize: 'summarize'
                 };
+                this.previousFeatures = null;
+                this.previousGraphics = null;
                 // if we have a layer title or layer id
                 if (this.config.summaryLayer && this.config.summaryLayer.id) {
                     // get layer by id/title
@@ -143,11 +145,18 @@ define([
                     // add features to graphics layer
                     this._selectedGraphics.clear();
                     array.some(this._aoiInfos, lang.hitch(this, function (renderer, index) {
-                        if (value == renderer.label) {
+                        if (value && value == renderer.label) {
                             rendererInfo = this._aoiInfos[index];
                             return true;
                         }
                     }));
+                    if (this.previousFeatures != null) {
+                        for (var i = 0; i < this.previousFeatures.length; i++) {
+                            if (rendererInfo) {
+                                this.previousFeatures[i].setSymbol(symbol);
+                            }
+                        }
+                    }
                     // each selected feature
                     for (var i = 0; i < features.length; i++) {
                         var symbol;
@@ -155,18 +164,15 @@ define([
                         var themeColor = this.config.theme == "light" ? [255, 255, 255, 1] : [60, 60, 60, 0.9];
                         sls = new SimpleLineSymbol(SimpleLineSymbol.STYLE_SOLID, new Color(themeColor), 2);
                         if (rendererInfo) {
-                            var fillColor = new Color([rendererInfo.symbol.color.r, rendererInfo.symbol.color.g, rendererInfo.symbol.color.b, 1]);
+                            var fillColor = new Color([rendererInfo.symbol.color.r, rendererInfo.symbol.color.g, rendererInfo.symbol.color.b, 0.2]);
                             // selected fill symbol
                             symbol = new SimpleFillSymbol(SimpleFillSymbol.STYLE_SOLID, sls, fillColor);
-                        } else {
+                        }
+                        else {
                             symbol = new SimpleFillSymbol(SimpleFillSymbol.STYLE_SOLID, sls, new Color([0, 255, 255, 0]));
                         }
-                        // selected graphic
-                        var g = new Graphic(features[i].geometry, symbol, features[i].attributes, null);
-                        if (g) {
-                            // add graphic to layer
-                            this._selectedGraphics.add(g);
-                        }
+                        features[i].setSymbol(symbol);
+                        this.previousFeatures = features;
                     }
                     // single fature
                     if (features.length === 1) {
@@ -180,13 +186,13 @@ define([
                                     if (this._rendererNodes[i].value) {
                                         // value matches
                                         if (this._rendererNodes[i].value.toString() === fieldValue.toString()) {
-                                            this._highlightFeature(i, sls, features);
+                                            this._highlightFeature(features, rendererInfo, sls, i);
                                             break;
                                         }
                                     } else {
                                         //for class break
                                         if ((fieldValue.toString() >= this._rendererNodes[i].minValue.toString()) && (fieldValue.toString() <= this._rendererNodes[i].maxValue)) {
-                                            this._highlightFeature(i, sls, features);
+                                            this._highlightFeature(features, rendererInfo, sls);
                                             break;
                                         }
                                     }
@@ -197,19 +203,29 @@ define([
                 }
             },
 
-            _highlightFeature: function (i, sls, features) {
-                //set selected
-                domClass.add(this._rendererNodes[i].node, this.areaCSS.rendererSelected);
+            _highlightFeature: function (features, rendererInfo, sls, i) {
                 var rendererInfo = this._aoiInfos[i - 1];
-                this._selectedGraphics.clear();
-                var fillColor = new Color([rendererInfo.symbol.color.r, rendererInfo.symbol.color.g, rendererInfo.symbol.color.b, 1]);
-                // selected fill symbol;
-                var symbol = new SimpleFillSymbol(SimpleFillSymbol.STYLE_SOLID, sls, fillColor);
-                var g = new Graphic(features[0].geometry, symbol, features[0].attributes, null);
-                if (g) {
-                    // add graphic to layer
-                    this._selectedGraphics.add(g);
+                if (this.previousGraphics != null) {
+                    var gColor = rendererInfo.symbol.color;
+                    var fillColor = new Color([gColor.r, gColor.g, gColor.b, gColor.a]);
+                    // selected fill symbol
+                    symbol = new SimpleFillSymbol(SimpleFillSymbol.STYLE_SOLID, sls, fillColor);
+                    this.previousGraphics.setSymbol(symbol);
                 }
+                this.previousGraphics = features[0];
+
+                if (rendererInfo) {
+                    var fillColor = new Color([rendererInfo.symbol.color.r, rendererInfo.symbol.color.g, rendererInfo.symbol.color.b, 0.5]);
+                    // selected fill symbol
+                    symbol = new SimpleFillSymbol(SimpleFillSymbol.STYLE_SOLID, sls, fillColor);
+                } else if (features[0].symbol) {
+                    var fillColor = new Color([features[0].symbol.color.r, features[0].symbol.color.g, features[0].symbol.color.b, 0.5]);
+                    // selected fill symbol
+                    symbol = new SimpleFillSymbol(SimpleFillSymbol.STYLE_SOLID, sls, fillColor);
+                } else {
+                    symbol = new SimpleFillSymbol(SimpleFillSymbol.STYLE_SOLID, sls, new Color([0, 255, 255, 0]));
+                }
+                features[0].setSymbol(symbol);
             },
             _setImpactLayerTitle: function(){
                 var node;
